@@ -7,7 +7,7 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 /**
  * INITIATE PAYMENT
- * Creates Paystack transaction and returns access_code
+ * Creates Paystack transaction and returns access_code + authorization_url
  */
 router.post("/initialize-payment", async (req, res) => {
   try {
@@ -49,8 +49,16 @@ router.post("/initialize-payment", async (req, res) => {
     const data = response.data.data;
 
     return res.status(200).json({
+      // =========================
+      // KEEP YOUR EXISTING OUTPUT
+      // =========================
       access_code: data.access_code,
       reference: data.reference,
+
+      // =========================
+      // ✅ ADDED (CRITICAL FIX FOR BETA SDK FLOW)
+      // =========================
+      authorization_url: data.authorization_url,
     });
   } catch (error) {
     console.log("PAYSTACK ERROR:", error.response?.data || error.message);
@@ -62,6 +70,9 @@ router.post("/initialize-payment", async (req, res) => {
   }
 });
 
+/**
+ * VERIFY PAYMENT
+ */
 router.post("/verify-payment", async (req, res) => {
   try {
     const { reference } = req.body;
@@ -103,7 +114,6 @@ router.post("/verify-payment", async (req, res) => {
 
     // STEP 4: (NEXT PHASE) SAVE SUBSCRIPTION
     // We'll connect database in next step
-    // For now we just return success
 
     return res.status(200).json({
       message: "Payment verified successfully",
