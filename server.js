@@ -43,6 +43,7 @@ app.post("/initialize-payment", async (req, res) => {
     return res.status(200).json({
       access_code: data.access_code,
       reference: data.reference,
+      authorization_url: data.authorization_url, // 🔥 REQUIRED
     });
   } catch (error) {
     console.log("Paystack Error:", error.response?.data || error.message);
