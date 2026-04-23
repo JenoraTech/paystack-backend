@@ -28,7 +28,7 @@ app.post("/initialize-payment", async (req, res) => {
       "https://api.paystack.co/transaction/initialize",
       {
         email,
-        amount: amount * 100, // convert to kobo
+        amount: amount, // convert to kobo
       },
       {
         headers: {
