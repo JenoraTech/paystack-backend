@@ -31,9 +31,20 @@ router.post("/initialize-payment", async (req, res) => {
       "https://api.paystack.co/transaction/initialize",
       {
         email,
-        amount: amount, // convert to kobo
 
-        // ✅ ADDED: device tracking without breaking your flow
+        // =========================
+        // ✅ FIXED: convert to kobo
+        // =========================
+        amount: amount * 100,
+
+        // =========================
+        // ✅ ADDED: optional redirect (safe for future use)
+        // =========================
+        callback_url: "https://your-domain.com/payment-success",
+
+        // =========================
+        // KEEP YOUR EXISTING METADATA
+        // =========================
         metadata: {
           deviceId: deviceId,
         },
@@ -56,7 +67,7 @@ router.post("/initialize-payment", async (req, res) => {
       reference: data.reference,
 
       // =========================
-      // ✅ ADDED (CRITICAL FIX FOR BETA SDK FLOW)
+      // ✅ REQUIRED FOR FLUTTER FLOW
       // =========================
       authorization_url: data.authorization_url,
     });
@@ -113,7 +124,6 @@ router.post("/verify-payment", async (req, res) => {
     }
 
     // STEP 4: (NEXT PHASE) SAVE SUBSCRIPTION
-    // We'll connect database in next step
 
     return res.status(200).json({
       message: "Payment verified successfully",
