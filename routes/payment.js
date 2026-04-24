@@ -35,7 +35,7 @@ router.post("/initialize-payment", async (req, res) => {
       {
         email,
         amount: amount * 100,
-        callback_url: "https://your-domain.com/payment-success",
+        callback_url: "https://tailorbizapp.web.app/payment-success",
         metadata: { deviceId },
       },
       {
