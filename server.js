@@ -3,9 +3,30 @@ const axios = require("axios");
 const cors = require("cors");
 require("dotenv").config();
 
+const pool = require("./config/db"); // ✅ PostgreSQL pool (replaces Mongo connectDB)
+
+// =========================
+// ❌ REMOVED: connectDB() (MongoDB only, not needed for PostgreSQL)
+// =========================
+
 const app = express();
 
 app.use(cors());
+
+// =========================
+// ✅ FIXED: RAW BODY SUPPORT (for Paystack webhook safety)
+// =========================
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
+
+// =========================
+// ALSO KEEP NORMAL JSON PARSER
+// =========================
 app.use(express.json());
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
@@ -53,6 +74,18 @@ app.post("/initialize-payment", async (req, res) => {
     });
   }
 });
+
+/**
+ * =========================
+ * 🔥 ADDED: PAYMENT ROUTES
+ * =========================
+ * This connects your full Paystack system:
+ * - initialize-payment
+ * - verify-payment
+ * - webhook
+ * - check-premium
+ */
+app.use("/api/payment", require("./routes/payment"));
 
 /**
  * SIMPLE TEST ROUTE

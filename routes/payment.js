@@ -1,5 +1,11 @@
 const express = require("express");
 const axios = require("axios");
+const crypto = require("crypto");
+
+// =========================
+// ✅ ADDED: Purchase Model
+// =========================
+const Purchase = require("../models/Purchase");
 
 const router = express.Router();
 
@@ -123,7 +129,23 @@ router.post("/verify-payment", async (req, res) => {
       });
     }
 
-    // STEP 4: (NEXT PHASE) SAVE SUBSCRIPTION
+    // =========================
+    // 🔥 ADDED: SAVE PURCHASE (ONE-TIME UNLOCK)
+    // =========================
+    await Purchase.findOneAndUpdate(
+      { deviceId },
+      {
+        deviceId,
+        email: data.customer.email,
+        reference: data.reference,
+        amount: data.amount / 100,
+        isPremium: true,
+      },
+      {
+        upsert: true,
+        new: true,
+      },
+    );
 
     return res.status(200).json({
       message: "Payment verified successfully",
@@ -132,6 +154,7 @@ router.post("/verify-payment", async (req, res) => {
       email: data.customer.email,
       deviceId: deviceId,
       status: "verified",
+      premium: true,
     });
   } catch (error) {
     console.log("VERIFY ERROR:", error.response?.data || error.message);
@@ -139,6 +162,99 @@ router.post("/verify-payment", async (req, res) => {
     return res.status(500).json({
       error: "Payment verification failed",
       details: error.response?.data || error.message,
+    });
+  }
+});
+
+// =========================
+// 🔥 PAYSTACK WEBHOOK
+// =========================
+router.post("/webhook", async (req, res) => {
+  try {
+    const secret = PAYSTACK_SECRET_KEY;
+
+    const hash = crypto
+      .createHmac("sha512", secret)
+      .update(JSON.stringify(req.body))
+      .digest("hex");
+
+    // =========================
+    // VERIFY PAYSTACK SIGNATURE
+    // =========================
+    if (hash !== req.headers["x-paystack-signature"]) {
+      return res.status(401).send("Invalid signature");
+    }
+
+    const event = req.body;
+
+    // =========================
+    // HANDLE SUCCESSFUL PAYMENT
+    // =========================
+    if (event.event === "charge.success") {
+      const data = event.data;
+
+      const reference = data.reference;
+      const amount = data.amount / 100;
+      const email = data.customer.email;
+      const deviceId = data.metadata?.deviceId;
+
+      console.log("✅ PAYMENT SUCCESS (WEBHOOK):", {
+        reference,
+        amount,
+        email,
+        deviceId,
+      });
+
+      // =========================
+      // 🔥 ADDED: SAVE PURCHASE (ONE-TIME UNLOCK)
+      // =========================
+      if (deviceId) {
+        await Purchase.findOneAndUpdate(
+          { deviceId },
+          {
+            deviceId,
+            email,
+            reference,
+            amount,
+            isPremium: true,
+          },
+          { upsert: true, new: true },
+        );
+      }
+
+      return res.status(200).send("Webhook received");
+    }
+
+    res.status(200).send("Event ignored");
+  } catch (error) {
+    console.log("WEBHOOK ERROR:", error.message);
+    res.status(500).send("Webhook error");
+  }
+});
+/**
+ * CHECK PREMIUM STATUS
+ * Flutter uses this ONLY to unlock app
+ */
+router.post("/check-premium", async (req, res) => {
+  try {
+    const { deviceId } = req.body;
+
+    if (!deviceId) {
+      return res.status(400).json({
+        error: "deviceId is required",
+      });
+    }
+
+    const user = await Purchase.findOne({ deviceId });
+
+    return res.status(200).json({
+      premium: !!user,
+    });
+  } catch (error) {
+    console.log("CHECK PREMIUM ERROR:", error.message);
+
+    return res.status(500).json({
+      error: "Failed to check premium status",
     });
   }
 });
